@@ -1,3 +1,5 @@
+// ReceiptUpload.tsx
+import * as FileSystem from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
@@ -10,6 +12,9 @@ type ParsedItem = {
   price: number;
   participants: string[];
 };
+
+const OCR_URL =
+  "https://settlment-app-production.up.railway.app/api/v1/ocr/parse";
 
 export default function ReceiptUpload({
   groupMembers,
@@ -25,6 +30,19 @@ export default function ReceiptUpload({
   const [payer, setPayer] = useState(currentUser);
   const [items, setItems] = useState<ParsedItem[]>([]);
 
+  // --- 공통: uri → base64
+  const toBase64 = async (uri: string) => {
+    try {
+      return await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+    } catch (e) {
+      console.warn("readAsStringAsync failed:", e);
+      return null;
+    }
+  };
+
+  // --- 앨범에서 선택
   const pickImage = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -33,38 +51,99 @@ export default function ReceiptUpload({
     if (!res.canceled) setImageUri(res.assets[0].uri);
   };
 
+  // --- 카메라로 촬영
+  const takePhoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Toast.show({ type: "error", text1: "카메라 권한이 필요합니다" });
+      return;
+    }
+    const res = await ImagePicker.launchCameraAsync({
+      quality: 0.85,
+    });
+    if (!res.canceled) setImageUri(res.assets[0].uri);
+  };
+
+  // --- OCR 호출
+  const callOCR = async (uri: string) => {
+    const base64 = await toBase64(uri);
+    if (!base64) {
+      throw new Error("이미지 변환 실패");
+    }
+
+    // (A) prefix 포함
+    let r = await fetch(OCR_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ file: `data:image/jpeg;base64,${base64}` }),
+    });
+
+    // (B) 실패하면 prefix 미포함 재시도
+    if (!r.ok) {
+      r = await fetch(OCR_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ file: base64 }),
+      });
+    }
+
+    if (!r.ok) {
+      const t = await r.text().catch(() => "");
+      throw new Error(`OCR 실패: ${r.status} ${t}`);
+    }
+
+    return r.json();
+  };
+
+  // --- OCR 프로세스 트리거
   const process = async () => {
-    if (!imageUri)
+    if (!imageUri) {
       return Toast.show({
         type: "error",
         text1: "이미지를 먼저 업로드해주세요",
       });
-    setIsProcessing(true);
-    setTimeout(() => {
-      setItems([
-        {
-          id: "1",
-          name: "삼겹살 2인분",
-          price: 32000,
+    }
+    try {
+      setIsProcessing(true);
+      const res = await callOCR(imageUri);
+
+      // ⚠️ 서버 응답에 맞춰 매핑
+      // 예시 가정:
+      // res = { items: [{ name: string, price: number }, ...] }
+      const parsed: ParsedItem[] = (res?.items ?? []).map(
+        (it: any, idx: number) => ({
+          id: String(idx + 1),
+          name: String(it?.name ?? `항목 ${idx + 1}`),
+          price: Number(it?.price ?? 0),
           participants: [currentUser],
-        },
-        {
-          id: "2",
-          name: "소주 2병",
-          price: 10000,
-          participants: [currentUser],
-        },
-        {
-          id: "3",
-          name: "공기밥 2개",
-          price: 4000,
-          participants: [currentUser],
-        },
-        { id: "4", name: "콜라 1개", price: 3000, participants: [currentUser] },
-      ]);
-      setIsProcessing(false);
+        })
+      );
+
+      if (!parsed.length) {
+        Toast.show({
+          type: "info",
+          text1: "인식된 항목이 없습니다. 수동 입력을 이용하세요.",
+        });
+      }
+
+      setItems(parsed);
       Toast.show({ type: "success", text1: "영수증 분석 완료!" });
-    }, 1200);
+    } catch (e: any) {
+      console.warn(e);
+      Toast.show({
+        type: "error",
+        text1: "OCR 오류",
+        text2: e?.message?.slice(0, 120) ?? "분석 중 문제가 발생했습니다.",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const toggle = (id: string, m: string) =>
@@ -82,11 +161,12 @@ export default function ReceiptUpload({
     );
 
   const submit = () => {
-    if (items.some((i) => i.participants.length === 0))
+    if (items.some((i) => i.participants.length === 0)) {
       return Toast.show({
         type: "error",
         text1: "모든 항목의 참여자를 선택해주세요",
       });
+    }
     const total = items.reduce((s, i) => s + i.price, 0);
     const exp: Expense = {
       id: Date.now().toString(),
@@ -113,13 +193,27 @@ export default function ReceiptUpload({
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 40 }} className="gap-4">
       {!imageUri ? (
-        <Pressable
-          onPress={pickImage}
-          className="rounded-2xl p-16 items-center bg-slate-50"
-        >
-          <Text className="text-slate-700">영수증 사진을 업로드하세요</Text>
-          <Text className="text-slate-500 mt-1">탭하여 앨범 열기</Text>
-        </Pressable>
+        <View className="gap-3">
+          <Pressable
+            onPress={takePhoto}
+            className="rounded-2xl p-16 items-center bg-indigo-600"
+          >
+            <Text className="text-white font-semibold">카메라로 촬영</Text>
+            <Text className="text-indigo-100 mt-1 text-sm">
+              영수증을 직접 찍어 업로드
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={pickImage}
+            className="rounded-2xl p-16 items-center bg-slate-50 border border-slate-200"
+          >
+            <Text className="text-slate-700">앨범에서 선택</Text>
+            <Text className="text-slate-500 mt-1 text-sm">
+              탭하여 앨범 열기
+            </Text>
+          </Pressable>
+        </View>
       ) : items.length === 0 ? (
         <View className="gap-3">
           <Image

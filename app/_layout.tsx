@@ -8,8 +8,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 import "../global.css";
 
-import { AppStateProvider } from "../lib/app-state"; // ✅ 경로/이름 정확히
-// import { BackgroundBlobs } from "../components/BackgroundBlobs"; // 선택
+import { AppStateProvider } from "../lib/app-state";
 
 export default function RootLayout() {
   useEffect(() => {
@@ -19,9 +18,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        {/* ✅ 전역 상태 컨텍스트는 반드시 루트에서 감싸야 합니다 */}
         <AppStateProvider>
-          {/* <BackgroundBlobs />  // pointerEvents="none" 권장 */}
           <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="auth" />

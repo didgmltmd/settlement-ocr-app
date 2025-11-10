@@ -2,7 +2,7 @@
 module.exports = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
   presets: [require("nativewind/preset")],
-  darkMode: "class", // RN에서 'dark' 클래스로 토글
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
@@ -10,7 +10,7 @@ module.exports = {
         foreground: "#1a1a1a",
         card: "#ffffff",
         "card-foreground": "#1a1a1a",
-        popover: "#ffffff", // RN에선 oklch 미지원 → 근사치
+        popover: "#ffffff",
         "popover-foreground": "#1a1a1a",
 
         primary: "#6366f1",

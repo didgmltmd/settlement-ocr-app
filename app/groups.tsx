@@ -1,10 +1,11 @@
 // app/groups.tsx
 import { router } from "expo-router";
-import { Menu, Plus, Trash2, Users } from "lucide-react-native";
+import { Plus, Trash2, Users } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import { FlatList, Pressable, Text, View } from "react-native";
 import Toast from "react-native-toast-message";
 import GradientCard from "../components/GradientCard";
+import HeaderWithMenu from "../components/HeaderWithMenu";
 import { useAppState } from "../lib/app-state";
 
 type Group = { id: string; name: string; members: string[]; createdAt: string };
@@ -56,13 +57,14 @@ export default function Groups() {
     <View className="flex-1">
       {/* 상단 헤더 */}
       <View className="pt-7 px-5 pb-4 flex-row items-center justify-between mb-7">
-        <View className="flex-row items-center gap-3">
-          <Pressable className="w-9 h-9 rounded-full items-center justify-center">
-            <Menu color="#334155" />
-          </Pressable>
-          <Text className="text-xl font-semibold">정산 그룹</Text>
-        </View>
-        {/* 우상단 자리(필요 시 설정/로그아웃 아이콘 배치 가능) */}
+        <HeaderWithMenu
+          username={currentUser?.name ?? "Guest"}
+          onLogout={() => {
+            logout();
+            router.replace("/auth");
+          }}
+          title="정산 그룹"
+        />
         <View className="flex-row gap-3">
           <Pressable
             onPress={() => {

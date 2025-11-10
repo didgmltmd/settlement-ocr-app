@@ -1,4 +1,5 @@
 // lib/app-state.tsx
+import { router } from "expo-router";
 import React, { createContext, useContext, useMemo, useState } from "react";
 
 export type User = { id: string; name: string } | null;
@@ -21,6 +22,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setCurrentUser(null);
     setCurrentGroup(null);
+    // ✅ 네비는 다음 tick으로 미룸 (렌더 중 네비 금지)
+    setTimeout(() => router.replace("/auth"), 0);
   };
 
   const value = useMemo(
@@ -33,7 +36,6 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }),
     [currentUser, currentGroup]
   );
-
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

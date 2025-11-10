@@ -1,8 +1,9 @@
 // app/groups.tsx
-import { router } from "expo-router";
+import { Redirect, router } from "expo-router";
 import { Plus, Trash2, Users } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import { FlatList, Pressable, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 import GradientCard from "../components/GradientCard";
 import HeaderWithMenu from "../components/HeaderWithMenu";
@@ -12,6 +13,7 @@ type Group = { id: string; name: string; members: string[]; createdAt: string };
 
 export default function Groups() {
   const { currentUser, setCurrentGroup, logout } = useAppState();
+
   const [groups, setGroups] = useState<Group[]>([
     {
       id: "1",
@@ -26,11 +28,6 @@ export default function Groups() {
       createdAt: "2025-10-28",
     },
   ]);
-
-  if (!currentUser) {
-    router.replace("/auth");
-    return null;
-  }
 
   const greetingName = useMemo(
     () => (currentUser?.name ? currentUser.name : "친구"),
@@ -53,30 +50,15 @@ export default function Groups() {
     Toast.show({ type: "success", text1: "그룹이 삭제되었습니다" });
   };
 
+  if (!currentUser) return <Redirect href="/auth" />;
+
   return (
-    <View className="flex-1">
-      {/* 상단 헤더 */}
-      <View className="pt-7 px-5 pb-4 flex-row items-center justify-between mb-7">
-        <HeaderWithMenu
-          username={currentUser?.name ?? "Guest"}
-          onLogout={() => {
-            logout();
-            router.replace("/auth");
-          }}
-          title="정산 그룹"
-        />
-        <View className="flex-row gap-3">
-          <Pressable
-            onPress={() => {
-              logout();
-              router.replace("/auth");
-            }}
-            className="px-3 py-2 rounded-xl bg-white border border-slate-200"
-          >
-            <Text className="text-rose-600 font-semibold">로그아웃</Text>
-          </Pressable>
-        </View>
-      </View>
+    <SafeAreaView className="flex-1 bg-background">
+      <HeaderWithMenu
+        username={currentUser.name}
+        onLogout={logout} // ⬅️ 여기서 router.replace 안 부름
+        title="정산 그룹"
+      />
 
       <FlatList
         data={groups}
@@ -86,10 +68,8 @@ export default function Groups() {
           paddingBottom: 28,
           gap: 12,
         }}
-        // 헤더: 히어로 카드 + 섹션 타이틀
         ListHeaderComponent={
           <View className="mb-4">
-            {/* 히어로 카드 */}
             <GradientCard>
               <Text className="text-white text-xl font-semibold mb-1">
                 안녕하세요, {greetingName}님!
@@ -97,20 +77,18 @@ export default function Groups() {
               <Text className="text-indigo-100 mb-5">
                 현재 {groups.length}개의 정산 그룹이 있습니다
               </Text>
-
               <Pressable
                 onPress={handleCreate}
                 className="flex-row items-center gap-2 px-4 py-2 rounded-2xl bg-white"
               >
                 <Plus color="#4f46e5" size={16} />
-                <Text className="text-indigo-600 font-semibold ">
+                <Text className="text-indigo-600 font-semibold">
                   새 그룹 만들기
                 </Text>
               </Pressable>
             </GradientCard>
 
-            <View className="mt-2 rounded-3xl p-5 bg-gradient-to-b from-indigo-50 to-purple-100" />
-
+            <View className="mt-2 rounded-3xl p-5 bg-slate-50 border border-slate-100" />
             <Text className="mb-3 text-slate-700">내 그룹 목록</Text>
           </View>
         }
@@ -123,7 +101,6 @@ export default function Groups() {
               router.push("/expenses");
             }}
           >
-            {/* 상단: 아이콘/이름/삭제 */}
             <View className="flex-row items-start justify-between">
               <View className="flex-row items-center gap-2 flex-1 pr-2">
                 <View className="w-10 h-10 rounded-xl bg-indigo-100 items-center justify-center">
@@ -141,17 +118,15 @@ export default function Groups() {
               </Pressable>
             </View>
 
-            {/* 생성일 */}
             <Text className="text-slate-500 mt-2">
               생성일: {item.createdAt}
             </Text>
 
-            {/* 멤버 배지 */}
             <View className="flex-row flex-wrap gap-2 mt-3">
               {item.members.slice(0, 3).map((m) => (
                 <View
                   key={m}
-                  className="px-2 py-1 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100"
+                  className="px-2 py-1 rounded-xl bg-indigo-50 border border-indigo-100"
                 >
                   <Text className="text-indigo-700 text-xs">{m}</Text>
                 </View>
@@ -167,6 +142,6 @@ export default function Groups() {
           </Pressable>
         )}
       />
-    </View>
+    </SafeAreaView>
   );
 }

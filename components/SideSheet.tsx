@@ -1,29 +1,33 @@
+// components/SideSheet.tsx
 import React, { useEffect, useRef } from "react";
 import {
   Animated,
   Dimensions,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
+  View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  width?: number; // default 80% of screen
+  width?: number;
   children: React.ReactNode;
 };
 
 export default function SideSheet({ open, onClose, width, children }: Props) {
+  const { top, bottom } = useSafeAreaInsets();
   const screenW = Dimensions.get("window").width;
   const sheetW = Math.min(width ?? screenW * 0.8, 360);
+
   const tx = useRef(new Animated.Value(-sheetW)).current;
   const overlay = useRef(new Animated.Value(0)).current;
 
-  // open 바뀔 때 애니메이션
   useEffect(() => {
     if (open) {
-      // 모달 열릴 때 초기 위치 보장
       tx.setValue(-sheetW);
       overlay.setValue(0);
       requestAnimationFrame(() => {
@@ -54,7 +58,7 @@ export default function SideSheet({ open, onClose, width, children }: Props) {
         }),
       ]).start();
     }
-  }, [open, sheetW, overlay, tx]);
+  }, [open, sheetW, tx, overlay]);
 
   return (
     <Modal
@@ -62,14 +66,13 @@ export default function SideSheet({ open, onClose, width, children }: Props) {
       transparent
       animationType="none"
       onRequestClose={onClose}
-      statusBarTranslucent
+      statusBarTranslucent={true}
+      presentationStyle={
+        Platform.OS === "ios" ? "overFullScreen" : "fullScreen"
+      }
     >
-      {/* Overlay */}
-      <Pressable
-        onPress={onClose}
-        style={StyleSheet.absoluteFillObject}
-        android_ripple={{ color: "rgba(0,0,0,0.08)" }}
-      >
+      {/* Overlay (전체 화면) */}
+      <Pressable onPress={onClose} style={StyleSheet.absoluteFillObject}>
         <Animated.View
           style={[
             StyleSheet.absoluteFillObject,
@@ -78,30 +81,42 @@ export default function SideSheet({ open, onClose, width, children }: Props) {
         />
       </Pressable>
 
-      {/* Sheet */}
-      <Animated.View
+      <View
+        pointerEvents="box-none"
         style={{
           position: "absolute",
           left: 0,
-          top: 0,
-          bottom: 0,
-          width: sheetW,
-          transform: [{ translateX: tx }],
-          backgroundColor: "white",
-          paddingHorizontal: 16,
-          paddingTop: 16,
-          paddingBottom: 24,
-          elevation: 6,
-          shadowColor: "#000",
-          shadowOpacity: 0.25,
-          shadowOffset: { width: 0, height: 2 },
-          shadowRadius: 8,
-          borderRightWidth: StyleSheet.hairlineWidth,
-          borderRightColor: "#e2e8f0",
+          right: 0,
+          top: top,
+          bottom: bottom,
         }}
       >
-        {children}
-      </Animated.View>
+        <Animated.View
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: sheetW,
+            transform: [{ translateX: tx }],
+            backgroundColor: "white",
+            paddingHorizontal: 16,
+            paddingTop: 16,
+            paddingBottom: 24,
+            borderRightWidth: StyleSheet.hairlineWidth,
+            borderRightColor: "#e2e8f0",
+            elevation: 6,
+            shadowColor: "#000",
+            shadowOpacity: 0.25,
+            shadowOffset: { width: 0, height: 2 },
+            shadowRadius: 8,
+            borderTopRightRadius: 24,
+            borderBottomRightRadius: 24,
+          }}
+        >
+          {children}
+        </Animated.View>
+      </View>
     </Modal>
   );
 }

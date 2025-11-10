@@ -23,118 +23,67 @@ export default function HeaderWithMenu({
   return (
     <>
       {/* Header */}
-      <View
-        style={{
-          paddingTop: 14,
-          paddingHorizontal: 16,
-          paddingBottom: 10,
-        }}
-      >
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
+      <View className="px-4 pb-2">
+        <View className="flex-row items-center justify-between">
           {/* Left: Hamburger + Title */}
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <View className="flex-row items-center gap-3">
             <Pressable
               onPress={() => setOpen(true)}
-              style={({ pressed }) => ({
-                width: 40,
-                height: 40,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 12,
-                backgroundColor: pressed ? "#eef2ff" : "transparent",
-              })}
+              style={({ pressed }) => [
+                {
+                  borderRadius: 12,
+                  width: 40,
+                  height: 40,
+                  alignItems: "center",
+                  justifyContent: "center",
+                },
+                pressed ? { backgroundColor: "#eef2ff" } : null, // pressed 상태만 콜백 유지
+              ]}
             >
               <Menu color="#334155" size={20} />
             </Pressable>
-            <Text style={{ fontSize: 18, fontWeight: "600", color: "#0f172a" }}>
+
+            <Text className="text-[18px] font-semibold text-slate-900">
               {title}
             </Text>
           </View>
 
-          {/* Right: online pill (desktop-only 느낌을 간소화) */}
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-              paddingVertical: 6,
-              paddingHorizontal: 10,
-              borderRadius: 999,
-              backgroundColor: "#eef2ff",
-            }}
-          ></View>
+          {/* 우측 배지(필요시 내용 넣기) */}
+          <View className="flex-row items-center gap-2 py-1.5 px-2.5 rounded-full bg-indigo-50" />
         </View>
       </View>
 
       {/* Side Sheet */}
       <SideSheet open={open} onClose={() => setOpen(false)}>
         {/* User Profile Card */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 12,
-            padding: 16,
-            borderRadius: 16,
-            backgroundColor: "#eef2ff", // indigo-50 느낌
-            marginTop: 8,
-          }}
-        >
-          <View
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 14,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "#6366f1", // indigo-500
-              shadowColor: "#000",
-              shadowOpacity: 0.2,
-              shadowOffset: { width: 0, height: 2 },
-              shadowRadius: 6,
-            }}
-          >
-            <Text style={{ color: "white", fontWeight: "700", fontSize: 18 }}>
-              {initial}
-            </Text>
+        <View className="flex-row items-center gap-3 p-4 rounded-2xl bg-indigo-50 mt-2 mb-5">
+          <View className="w-14 h-14 rounded-[14px] items-center justify-center bg-indigo-600 shadow-black/20 shadow-md">
+            <Text className="text-white font-bold text-[18px]">{initial}</Text>
           </View>
           <View>
-            <Text style={{ color: "#0f172a", fontWeight: "600" }}>
-              {username}
-            </Text>
-            <Text style={{ color: "#64748b", fontSize: 12 }}>계정 관리</Text>
+            <Text className="text-slate-900 font-semibold">{username}</Text>
+            <Text className="text-slate-500 text-xs">계정 관리</Text>
           </View>
         </View>
 
         {/* Menu Items */}
-        <View style={{ marginTop: 16 }}>
-          <MenuItem
-            icon={<User color="#0f172a" size={18} />}
-            label="프로필 설정"
-            onPress={() => {}}
-          />
-          <MenuItem
-            icon={<Settings color="#0f172a" size={18} />}
-            label="환경 설정"
-            onPress={() => {}}
-          />
-          <MenuItem
-            icon={<HelpCircle color="#0f172a" size={18} />}
-            label="도움말"
-            onPress={() => {}}
-          />
+        <View className="mt-8 min-h-[10rem] flex-col justify-between">
+          <Pressable className="flex-row items-center gap-3 p-3 rounded-xl bg-indigo-50">
+            <User color="#334155" size={18} />
+            <Text className="text-slate-900">프로필 설정</Text>
+          </Pressable>
+          <Pressable className="flex-row items-center gap-3 p-3 rounded-xl bg-indigo-50">
+            <Settings color="#334155" size={18} />
+            <Text className="text-slate-900">설정</Text>
+          </Pressable>
+          <Pressable className="flex-row items-center gap-3 p-3 rounded-xl bg-indigo-50">
+            <HelpCircle color="#334155" size={18} />
+            <Text className="text-slate-900">도움말</Text>
+          </Pressable>
         </View>
 
         {/* Divider */}
-        <View
-          style={{ height: 1, backgroundColor: "#e2e8f0", marginVertical: 16 }}
-        />
+        <View className="h-px bg-slate-200 my-4" />
 
         {/* Logout */}
         <Pressable
@@ -142,25 +91,29 @@ export default function HeaderWithMenu({
             setOpen(false);
             onLogout();
           }}
-          style={({ pressed }) => ({
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 10,
-            paddingVertical: 12,
-            paddingHorizontal: 12,
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: pressed ? "#fecaca" : "#fecaca",
-            backgroundColor: pressed ? "#fee2e2" : "white",
-          })}
+          style={({ pressed }) => [
+            {
+              borderRadius: 12,
+              borderWidth: 1,
+              paddingVertical: 12,
+              paddingHorizontal: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+            },
+            {
+              borderColor: "#fecaca",
+              backgroundColor: pressed ? "#fee2e2" : "white",
+            },
+          ]}
         >
           <LogOut color="#dc2626" size={18} />
-          <Text style={{ color: "#dc2626", fontWeight: "600" }}>로그아웃</Text>
+          <Text className="text-red-600 font-semibold">로그아웃</Text>
         </Pressable>
 
         {/* Footer */}
-        <View style={{ marginTop: 24 }}>
-          <Text style={{ textAlign: "center", color: "#94a3b8", fontSize: 12 }}>
+        <View className="mt-6">
+          <Text className="text-center text-slate-400 text-xs">
             1/N 정산 앱 v1.0
           </Text>
         </View>
@@ -181,18 +134,20 @@ function MenuItem({
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
-        paddingVertical: 12,
-        paddingHorizontal: 12,
-        borderRadius: 12,
-        backgroundColor: pressed ? "#eef2ff" : "transparent",
-      })}
+      style={({ pressed }) => [
+        {
+          borderRadius: 12,
+          paddingVertical: 12,
+          paddingHorizontal: 12,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+        },
+        pressed ? { backgroundColor: "#eef2ff" } : null,
+      ]}
     >
       {icon}
-      <Text style={{ color: "#0f172a" }}>{label}</Text>
+      <Text className="text-slate-900">{label}</Text>
     </Pressable>
   );
 }

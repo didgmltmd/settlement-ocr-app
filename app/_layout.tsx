@@ -7,7 +7,6 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 import "../global.css";
-
 import { AppStateProvider } from "../lib/app-state";
 
 export default function RootLayout() {
@@ -20,6 +19,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <AppStateProvider>
           <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
+            {/* ✅ 첫 렌더부터 네비게이터가 바로 보이게 */}
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="auth" />
               <Stack.Screen name="groups" />

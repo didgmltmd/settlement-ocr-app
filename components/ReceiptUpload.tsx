@@ -1,5 +1,4 @@
-// ReceiptUpload.tsx
-import * as FileSystem from "expo-file-system";
+import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
@@ -26,97 +25,104 @@ export default function ReceiptUpload({
   onAddExpense: (e: Expense) => void;
 }) {
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageB64, setImageB64] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [payer, setPayer] = useState(currentUser);
   const [items, setItems] = useState<ParsedItem[]>([]);
 
-  // --- 공통: uri → base64
-  const toBase64 = async (uri: string) => {
-    try {
-      return await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-    } catch (e) {
-      console.warn("readAsStringAsync failed:", e);
-      return null;
-    }
-  };
-
-  // --- 앨범에서 선택
   const pickImage = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
+      quality: 1,
     });
-    if (!res.canceled) setImageUri(res.assets[0].uri);
+    if (!res.canceled) {
+      const asset = res.assets[0];
+      const out = await manipulateToBase64(asset.uri);
+      setImageUri(out.uri);
+      setImageB64(out.base64);
+    }
   };
 
-  // --- 카메라로 촬영
   const takePhoto = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      Toast.show({ type: "error", text1: "카메라 권한이 필요합니다" });
-      return;
+    if (!perm.granted)
+      return Toast.show({ type: "error", text1: "카메라 권한이 필요합니다" });
+    const res = await ImagePicker.launchCameraAsync({ quality: 1 });
+    if (!res.canceled) {
+      const asset = res.assets[0];
+      const out = await manipulateToBase64(asset.uri);
+      setImageUri(out.uri);
+      setImageB64(out.base64);
     }
-    const res = await ImagePicker.launchCameraAsync({
-      quality: 0.85,
-    });
-    if (!res.canceled) setImageUri(res.assets[0].uri);
   };
 
-  // --- OCR 호출
-  const callOCR = async (uri: string) => {
-    const base64 = await toBase64(uri);
-    if (!base64) {
-      throw new Error("이미지 변환 실패");
-    }
+  // ❶ 이미지 리사이즈/압축 + base64 생성 (최대 1600px, JPEG)
+  const manipulateToBase64 = async (uri: string) => {
+    const result = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: 1600 } }], // 긴 변 기준 1600px 정도로 줄여 500 회피
+      { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+    );
+    if (!result.base64) throw new Error("base64 변환 실패");
+    return { uri: result.uri, base64: result.base64 };
+  };
 
-    // (A) prefix 포함
-    let r = await fetch(OCR_URL, {
+  // ❷ JSON 방식 호출 (먼저 시도)
+  const callOCRJson = async (b64: string) => {
+    const r = await fetch(OCR_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify({ file: `data:image/jpeg;base64,${base64}` }),
+      body: JSON.stringify({ file: `data:image/jpeg;base64,${b64}` }),
     });
-
-    // (B) 실패하면 prefix 미포함 재시도
-    if (!r.ok) {
-      r = await fetch(OCR_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ file: base64 }),
-      });
-    }
-
-    if (!r.ok) {
-      const t = await r.text().catch(() => "");
-      throw new Error(`OCR 실패: ${r.status} ${t}`);
-    }
-
-    return r.json();
+    return r;
   };
 
-  // --- OCR 프로세스 트리거
+  // ❸ multipart/form-data 방식 호출 (JSON 실패 시 재시도)
+  const callOCRMultipart = async (uri: string) => {
+    const form = new FormData();
+    form.append("file", {
+      // @ts-ignore React Native FormData file
+      uri,
+      name: "receipt.jpg",
+      type: "image/jpeg",
+    });
+    const r = await fetch(OCR_URL, {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      body: form,
+    });
+    return r;
+  };
+
   const process = async () => {
-    if (!imageUri) {
+    if (!imageUri || !imageB64) {
       return Toast.show({
         type: "error",
         text1: "이미지를 먼저 업로드해주세요",
       });
     }
+
     try {
       setIsProcessing(true);
-      const res = await callOCR(imageUri);
 
-      // ⚠️ 서버 응답에 맞춰 매핑
-      // 예시 가정:
-      // res = { items: [{ name: string, price: number }, ...] }
-      const parsed: ParsedItem[] = (res?.items ?? []).map(
+      // 1) JSON 우선
+      let res = await callOCRJson(imageB64);
+      // 1-1) JSON이 500 등 실패면 multipart 재시도
+      if (!res.ok) {
+        res = await callOCRMultipart(imageUri);
+      }
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(`OCR 실패: ${res.status} ${txt}`);
+      }
+
+      const data = await res.json();
+
+      // 서버 응답 매핑 (예: { items: [{ name, price }, ...] })
+      const parsed: ParsedItem[] = (data?.items ?? []).map(
         (it: any, idx: number) => ({
           id: String(idx + 1),
           name: String(it?.name ?? `항목 ${idx + 1}`),
@@ -131,7 +137,6 @@ export default function ReceiptUpload({
           text1: "인식된 항목이 없습니다. 수동 입력을 이용하세요.",
         });
       }
-
       setItems(parsed);
       Toast.show({ type: "success", text1: "영수증 분석 완료!" });
     } catch (e: any) {
@@ -139,7 +144,7 @@ export default function ReceiptUpload({
       Toast.show({
         type: "error",
         text1: "OCR 오류",
-        text2: e?.message?.slice(0, 120) ?? "분석 중 문제가 발생했습니다.",
+        text2: e?.message?.slice(0, 120),
       });
     } finally {
       setIsProcessing(false);
@@ -186,6 +191,7 @@ export default function ReceiptUpload({
 
   const reset = () => {
     setImageUri(null);
+    setImageB64(null);
     setItems([]);
     setPayer(currentUser);
   };
@@ -203,7 +209,6 @@ export default function ReceiptUpload({
               영수증을 직접 찍어 업로드
             </Text>
           </Pressable>
-
           <Pressable
             onPress={pickImage}
             className="rounded-2xl p-16 items-center bg-slate-50 border border-slate-200"
@@ -239,6 +244,7 @@ export default function ReceiptUpload({
         </View>
       ) : (
         <View className="gap-4">
+          {/* 결제자 선택 */}
           <View>
             <Text className="text-slate-700 mb-2">결제자</Text>
             <ScrollView
@@ -264,6 +270,7 @@ export default function ReceiptUpload({
             </ScrollView>
           </View>
 
+          {/* 항목/참여자 */}
           <View className="gap-3">
             {items.map((it) => (
               <View key={it.id} className="bg-slate-50 rounded-2xl p-4">
@@ -297,13 +304,13 @@ export default function ReceiptUpload({
             ))}
           </View>
 
+          {/* 합계 + 제출 */}
           <View className="flex-row items-center justify-between">
             <Text className="text-slate-700">총 금액</Text>
             <Text className="text-lg font-semibold text-indigo-700">
               {items.reduce((s, i) => s + i.price, 0).toLocaleString()}원
             </Text>
           </View>
-
           <Pressable
             onPress={submit}
             className="h-12 rounded-2xl items-center justify-center bg-indigo-600"

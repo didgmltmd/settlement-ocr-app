@@ -19,14 +19,13 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <AppStateProvider>
           <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
-            {/* ✅ 첫 렌더부터 네비게이터가 바로 보이게 */}
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="auth" />
               <Stack.Screen name="groups" />
               <Stack.Screen name="expenses" />
               <Stack.Screen name="settlement" />
             </Stack>
-            <Toast />
+            <Toast position="bottom" bottomOffset={60} />
             <StatusBar style="auto" />
           </SafeAreaView>
         </AppStateProvider>

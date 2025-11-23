@@ -1,18 +1,16 @@
 // app/expenses.tsx
 import { Redirect, router, useRootNavigationState } from "expo-router";
-import { ArrowLeft, Calculator, Plus } from "lucide-react-native";
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
+import { ArrowLeft, Calculator, Plus } from "lucide-react-native";
 import AddExpenseModal from "../components/AddExpenseModal";
 import ExpenseList, { Expense } from "../components/ExpenseList";
 import { useAppState } from "../lib/app-state";
 
 export default function Expenses() {
   const { currentUser, currentGroup, setCurrentGroup } = useAppState();
-  const rootNav = useRootNavigationState(); // ✅ 네비게이션 준비 여부
-
+  const rootNav = useRootNavigationState();
   const [showAdd, setShowAdd] = useState(false);
   const [expenses, setExpenses] = useState<Expense[]>([
     {
@@ -51,10 +49,10 @@ export default function Expenses() {
     },
   ]);
 
-  // ✅ 네비게이션이 아직 부팅 전이면 아무 것도 렌더하지 않음 (초기화 에러 방지)
+
   if (!rootNav?.key) return null;
 
-  // ✅ 안전한 라우팅: 렌더 중 setState/replace 호출 없이 Redirect 사용
+
   if (!currentUser) return <Redirect href="/auth" />;
   if (!currentGroup) return <Redirect href="/groups" />;
 
@@ -66,8 +64,8 @@ export default function Expenses() {
       {/* 뒤로가기 */}
       <Pressable
         onPress={() => {
-          setCurrentGroup(null); // ✅ 이벤트 핸들러에서만 상태 변경
-          router.replace("/groups"); // ✅ 여기선 사용자 액션 후라 안전
+          setCurrentGroup(null); 
+          router.replace("/groups"); 
         }}
         className="mt-2 mb-4 ml-4 w-24"
       >

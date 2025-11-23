@@ -1,4 +1,10 @@
-import { HelpCircle, LogOut, Menu, Settings, User } from "lucide-react-native";
+import {
+  HelpCircle,
+  LogOut,
+  Menu,
+  Settings,
+  User,
+} from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import SideSheet from "./SideSheet";
@@ -7,12 +13,14 @@ type Props = {
   username: string;
   onLogout: () => void;
   title?: string;
+  rightSlot?: React.ReactNode;
 };
 
 export default function HeaderWithMenu({
   username,
   onLogout,
   title = "정산 그룹",
+  rightSlot,
 }: Props) {
   const [open, setOpen] = useState(false);
   const initial = useMemo(
@@ -37,7 +45,7 @@ export default function HeaderWithMenu({
                   alignItems: "center",
                   justifyContent: "center",
                 },
-                pressed ? { backgroundColor: "#eef2ff" } : null, // pressed 상태만 콜백 유지
+                pressed ? { backgroundColor: "#eef2ff" } : null,
               ]}
             >
               <Menu color="#334155" size={20} />
@@ -48,8 +56,10 @@ export default function HeaderWithMenu({
             </Text>
           </View>
 
-          {/* 우측 배지(필요시 내용 넣기) */}
-          <View className="flex-row items-center gap-2 py-1.5 px-2.5 rounded-full bg-indigo-50" />
+          {/* Right Slot */}
+          <View className="flex-row items-center gap-2 py-1.5 px-2.5 rounded-full bg-indigo-50">
+            {rightSlot}
+          </View>
         </View>
       </View>
 

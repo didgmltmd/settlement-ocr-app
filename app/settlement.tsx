@@ -1,7 +1,14 @@
 import { router } from "expo-router";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { ArrowLeft, ArrowRight, CheckCircle } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import Toast from "react-native-toast-message";
 import { useAppState } from "../lib/app-state";
 
@@ -32,11 +39,11 @@ export default function Settlement() {
     const runSettlement = async () => {
       setLoading(true);
       try {
-        const headersBase = auth.accessToken
+        const headersBase: Record<string, string> = auth.accessToken
           ? { Authorization: `Bearer ${auth.accessToken}` }
           : {};
 
-        // 1) 그룹 영수증 조회
+        // 1) 영수증 목록
         const receiptsResp = await fetch(
           `https://settlment-app-production.up.railway.app/api/v1/groups/${currentGroup.id}/receipts`,
           { headers: { ...headersBase, accept: "*/*" } }
@@ -71,9 +78,10 @@ export default function Settlement() {
           throw new Error(msg || "정산 생성에 실패했습니다");
         }
         const created = await createResp.json();
-        const settlementId = created.settlementId;
+        const settlementId = created?.settlementId;
+        if (!settlementId) throw new Error("정산 ID를 받지 못했습니다");
 
-        // 3) 계산 요청
+        // 3) 계산
         const calcResp = await fetch(
           `https://settlment-app-production.up.railway.app/api/v1/settlements/${settlementId}/calculate`,
           {
@@ -160,8 +168,15 @@ export default function Settlement() {
   };
 
   return (
-    <View className="flex-1 pt-14 px-6">
-      <Pressable onPress={() => router.back()} className="mb-4 w-24">
+    <Animated.View
+      entering={FadeIn.duration(250)}
+      className="flex-1 pt-14 px-6 bg-white"
+    >
+      <Pressable
+        onPress={() => router.back()}
+        className="mb-4 w-24"
+        style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+      >
         <View className="flex-row items-center gap-2">
           <ArrowLeft color="#334155" />
           <Text className="text-slate-700">뒤로가기</Text>
@@ -182,7 +197,13 @@ export default function Settlement() {
         <View className="bg-white rounded-2xl p-4 mb-8">
           <Text className="font-semibold mb-3">멤버 정산 요약</Text>
           {Object.keys(balances).length === 0 ? (
-            <Text className="text-slate-500">잔액 정보가 없습니다</Text>
+            <View className="items-center py-8">
+              {loading ? (
+                <ActivityIndicator size="small" color="#4f46e5" />
+              ) : (
+                <Text className="text-slate-500">잔액 정보가 없습니다</Text>
+              )}
+            </View>
           ) : (
             <View className="gap-3">
               {Object.entries(balances).map(([id, bal]) => (
@@ -209,7 +230,12 @@ export default function Settlement() {
         </View>
 
         <Text className="text-slate-900 mb-3">송금 내역</Text>
-        {txs.length === 0 ? (
+        {loading ? (
+          <View className="bg-white rounded-2xl p-14 items-center">
+            <ActivityIndicator size="small" color="#4f46e5" />
+            <Text className="mt-3 text-slate-600">정산 계산 중...</Text>
+          </View>
+        ) : txs.length === 0 ? (
           <View className="bg-white rounded-2xl p-14 items-center">
             <CheckCircle color="#16a34a" size={36} />
             <Text className="mt-3 font-semibold">정산이 완료되었습니다</Text>
@@ -250,6 +276,6 @@ export default function Settlement() {
           </View>
         )}
       </ScrollView>
-    </View>
+    </Animated.View>
   );
 }

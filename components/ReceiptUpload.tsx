@@ -188,7 +188,7 @@ export default function ReceiptUpload({
       };
       onAddExpense(expense);
       Toast.show({ type: "success", text1: "지출이 등록되었습니다" });
-      router.replace("/groups");
+      router.replace("/expenses");
     } catch (e: any) {
       Toast.show({
         type: "error",

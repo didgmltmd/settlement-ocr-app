@@ -1,8 +1,15 @@
 import { Redirect, router, useRootNavigationState } from "expo-router";
 import { useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, Calculator, Plus } from "lucide-react-native";
+import { ArrowLeft, Calculator, Plus, Trash2 } from "lucide-react-native";
 import Toast from "react-native-toast-message";
 import AddExpenseModal from "../components/AddExpenseModal";
 import ExpenseList, { Expense } from "../components/ExpenseList";
@@ -17,6 +24,10 @@ export default function Expenses() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detail, setDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  const [memberModalOpen, setMemberModalOpen] = useState(false);
+  const [confirmMemberId, setConfirmMemberId] = useState<string | null>(null);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!currentGroup?.id) return;
@@ -117,8 +128,47 @@ export default function Expenses() {
     }
   };
 
+  const handleRemoveMember = async (memberId: string) => {
+    if (!auth.accessToken) {
+      Toast.show({ type: "error", text1: "로그인 토큰이 없습니다" });
+      return;
+    }
+    if (!currentGroup?.id) return;
+    setRemovingMemberId(memberId);
+    try {
+      const resp = await fetch(
+        `https://settlment-app-production.up.railway.app/api/v1/groups/${currentGroup.id}/members/${memberId}`,
+        {
+          method: "DELETE",
+          headers: {
+            accept: "*/*",
+            Authorization: `Bearer ${auth.accessToken}`,
+          },
+        }
+      );
+      if (!resp.ok) {
+        const message = await resp.text();
+        throw new Error(message || "멤버 삭제에 실패했습니다");
+      }
+      setCurrentGroup({
+        ...currentGroup,
+        members: currentGroup.members.filter((m) => m !== memberId),
+      });
+      Toast.show({ type: "success", text1: "멤버가 삭제되었습니다" });
+    } catch (err) {
+      Toast.show({
+        type: "error",
+        text1: "삭제 실패",
+        text2: err instanceof Error ? err.message : "다시 시도해주세요",
+      });
+    } finally {
+      setRemovingMemberId(null);
+      setConfirmMemberId(null);
+    }
+  };
+
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 bg-white">
       <Pressable
         onPress={() => {
           setCurrentGroup(null);
@@ -132,7 +182,7 @@ export default function Expenses() {
         </View>
       </Pressable>
 
-      <View className="flex-row items-center justify-between mb-6 px-6">
+      <View className="flex-row items-center justify-between mb-4 px-6">
         <View>
           <Text className="text-xl font-semibold">{currentGroup.name}</Text>
           <Text className="text-slate-600 mt-1">
@@ -149,6 +199,13 @@ export default function Expenses() {
           </View>
         </Pressable>
       </View>
+
+      <Pressable
+        onPress={() => setMemberModalOpen(true)}
+        className="mx-6 h-11 rounded-2xl items-center justify-center bg-white border border-slate-200 mb-4"
+      >
+        <Text className="text-slate-700 font-semibold">멤버 관리</Text>
+      </Pressable>
 
       <Pressable
         onPress={() => setShowAdd(true)}
@@ -235,13 +292,102 @@ export default function Expenses() {
                         금액: {it.price?.toLocaleString()}원
                       </Text>
                       <Text className="text-slate-500 text-xs">
-                        참여자: {(it.participants || []).join(", ")}
+                        참여자 {(it.participants || []).join(", ")}
                       </Text>
                     </View>
                   ))}
                 </View>
               </View>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={memberModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMemberModalOpen(false)}
+      >
+        <View className="flex-1 bg-black/40 justify-center items-center px-6">
+          <View className="w-full max-w-md bg-white rounded-2xl p-4 gap-3">
+            <View className="flex-row justify-between items-center">
+              <Text className="text-lg font-semibold text-slate-900">
+                멤버 관리
+              </Text>
+              <Pressable onPress={() => setMemberModalOpen(false)}>
+                <Text className="text-slate-500">닫기</Text>
+              </Pressable>
+            </View>
+            <View className="gap-2">
+              {currentGroup.members.map((m) => (
+                <View
+                  key={m}
+                  className="flex-row items-center justify-between bg-slate-50 rounded-xl p-3"
+                >
+                  <Text className="text-slate-900">{m}</Text>
+                  {m !== currentUser.id && (
+                    <Pressable
+                      className="px-3 py-1 rounded-xl bg-rose-50 border border-rose-200 flex-row items-center gap-2"
+                      onPress={() => setConfirmMemberId(m)}
+                      disabled={removingMemberId === m}
+                      style={{ opacity: removingMemberId === m ? 0.6 : 1 }}
+                    >
+                      {removingMemberId === m ? (
+                        <ActivityIndicator size="small" color="#ef4444" />
+                      ) : (
+                        <>
+                          <Trash2 color="#ef4444" size={14} />
+                          <Text className="text-rose-600 text-sm">삭제</Text>
+                        </>
+                      )}
+                    </Pressable>
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={!!confirmMemberId}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmMemberId(null)}
+      >
+        <View className="flex-1 bg-black/40 justify-center items-center px-6">
+          <View className="w-full max-w-md bg-white rounded-2xl p-4 gap-3">
+            <Text className="text-lg font-semibold text-slate-900">
+              멤버 삭제
+            </Text>
+            <Text className="text-slate-600">
+              "{confirmMemberId}" 멤버를 삭제할까요?
+            </Text>
+            <View className="flex-row justify-end gap-2">
+              <Pressable
+                className="px-4 py-2 rounded-xl bg-slate-100"
+                onPress={() => setConfirmMemberId(null)}
+                disabled={removingMemberId !== null}
+                style={{ opacity: removingMemberId ? 0.6 : 1 }}
+              >
+                <Text className="text-slate-700">취소</Text>
+              </Pressable>
+              <Pressable
+                className="px-4 py-2 rounded-xl bg-rose-600"
+                onPress={() => {
+                  if (confirmMemberId) handleRemoveMember(confirmMemberId);
+                }}
+                disabled={removingMemberId !== null}
+                style={{ opacity: removingMemberId ? 0.7 : 1 }}
+              >
+                {removingMemberId ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text className="text-white font-semibold">삭제</Text>
+                )}
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>

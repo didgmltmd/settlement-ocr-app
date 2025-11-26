@@ -425,7 +425,7 @@ function StatPill({ icon: Icon, label }: StatPillProps) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#eef2ff",
+    backgroundColor: "#ffffff",
   },
   flex: { flex: 1 },
   scrollContent: {

@@ -41,9 +41,15 @@ export default function Groups() {
   const [inviting, setInviting] = useState(false);
 
   const [pendingInvites, setPendingInvites] = useState<Invite[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
   const [invitesOpen, setInvitesOpen] = useState(false);
   const [inviteListLoading, setInviteListLoading] = useState(false);
   const [inviteActionId, setInviteActionId] = useState<string | null>(null);
+
+  const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null);
+  const [confirmDeleteGroup, setConfirmDeleteGroup] = useState<Group | null>(
+    null
+  );
 
   const greetingName = useMemo(
     () => (currentUser?.name ? currentUser.name : "친구"),
@@ -114,6 +120,7 @@ export default function Groups() {
         createdAt: i.createdAt,
       }));
       setPendingInvites(normalized);
+      setPendingCount(normalized.length);
     } catch (err) {
       Toast.show({
         type: "error",
@@ -246,7 +253,11 @@ export default function Groups() {
         type: "success",
         text1: action === "accept" ? "초대를 수락했습니다" : "초대를 거절했습니다",
       });
-      setPendingInvites((prev) => prev.filter((i) => i.id !== inviteId));
+      setPendingInvites((prev) => {
+        const next = prev.filter((i) => i.id !== inviteId);
+        setPendingCount(next.length);
+        return next;
+      });
       if (action === "accept") {
         fetchGroups();
       }
@@ -261,15 +272,91 @@ export default function Groups() {
     }
   };
 
+  const handleDeleteGroup = async (groupId: string) => {
+    if (!auth.accessToken) {
+      Toast.show({ type: "error", text1: "로그인 토큰이 없습니다" });
+      return;
+    }
+    setDeletingGroupId(groupId);
+    try {
+      const resp = await fetch(
+        `https://settlment-app-production.up.railway.app/api/v1/groups/${groupId}`,
+        {
+          method: "DELETE",
+          headers: {
+            accept: "*/*",
+            Authorization: `Bearer ${auth.accessToken}`,
+          },
+        }
+      );
+      if (!resp.ok) {
+        const message = await resp.text();
+        throw new Error(message || "그룹 삭제에 실패했습니다");
+      }
+      setGroups((prev) => prev.filter((g) => g.id !== groupId));
+      Toast.show({ type: "success", text1: "그룹이 삭제되었습니다" });
+    } catch (err) {
+      Toast.show({
+        type: "error",
+        text1: "삭제 실패",
+        text2: err instanceof Error ? err.message : "다시 시도해주세요",
+      });
+    } finally {
+      setDeletingGroupId(null);
+    }
+  };
+
+  const handleRemoveMember = async (groupId: string, memberId: string) => {
+    if (!auth.accessToken) {
+      Toast.show({ type: "error", text1: "로그인 토큰이 없습니다" });
+      return;
+    }
+    const key = `${groupId}:${memberId}`;
+    setRemovingMemberKey(key);
+    try {
+      const resp = await fetch(
+        `https://settlment-app-production.up.railway.app/api/v1/groups/${groupId}/members/${memberId}`,
+        {
+          method: "DELETE",
+          headers: {
+            accept: "*/*",
+            Authorization: `Bearer ${auth.accessToken}`,
+          },
+        }
+      );
+      if (!resp.ok) {
+        const message = await resp.text();
+        throw new Error(message || "멤버 삭제에 실패했습니다");
+      }
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === groupId
+            ? { ...g, members: g.members.filter((m) => m !== memberId) }
+            : g
+        )
+      );
+      Toast.show({ type: "success", text1: "멤버가 삭제되었습니다" });
+    } catch (err) {
+      Toast.show({
+        type: "error",
+        text1: "삭제 실패",
+        text2: err instanceof Error ? err.message : "다시 시도해주세요",
+      });
+    } finally {
+      setRemovingMemberKey(null);
+    }
+  };
+
   useEffect(() => {
     fetchGroups();
+    fetchPendingInvites();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]);
 
   if (!currentUser) return <Redirect href="/auth" />;
 
   return (
-    <SafeAreaView className="flex-1">
+    <SafeAreaView className="flex-1 bg-white">
       <HeaderWithMenu
         username={currentUser.name}
         onLogout={logout}
@@ -281,8 +368,16 @@ export default function Groups() {
               fetchPendingInvites();
             }}
             className="w-9 h-9 rounded-full items-center justify-center bg-white"
+            style={{ position: "relative" }}
           >
             <Mail color="#4f46e5" size={18} />
+            {pendingCount > 0 && (
+              <View className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-rose-500 items-center justify-center px-1">
+                <Text className="text-white text-[10px] font-semibold">
+                  {pendingCount}
+                </Text>
+              </View>
+            )}
           </Pressable>
         }
       />
@@ -302,7 +397,7 @@ export default function Groups() {
           <View className="mb-4 mt-4">
             <GradientCard>
               <Text className="text-white text-xl font-semibold mb-1">
-                안녕하세요, {greetingName}님
+                안녕하세요 {greetingName}님
               </Text>
               <Text className="text-indigo-100 mb-4">
                 현재 {groups.length}개의 정산 그룹이 있습니다
@@ -333,8 +428,7 @@ export default function Groups() {
               </View>
             </GradientCard>
 
-            <View className="mt-2 rounded-3xl p-5 bg-slate-50 border border-slate-100" />
-            <Text className="mb-3 text-slate-700">내 그룹 목록</Text>
+            <Text className="mt-10 mb-1 text-slate-700">내 그룹 목록</Text>
           </View>
         }
         ListEmptyComponent={
@@ -349,7 +443,9 @@ export default function Groups() {
         renderItem={({ item }) => (
           <Pressable
             className="rounded-2xl p-4 bg-white shadow-lg"
-            style={{ elevation: 3 }}
+            style={({ pressed }) => [
+              { elevation: 3, transform: [{ scale: pressed ? 0.98 : 1 }] },
+            ]}
             onPress={() => {
               setCurrentGroup(item);
               router.push("/expenses");
@@ -364,8 +460,13 @@ export default function Groups() {
                   {item.name}
                 </Text>
               </View>
-              <Pressable className="p-2 rounded-xl opacity-40">
-                <Trash2 color="#cbd5e1" />
+              <Pressable
+                className="p-2 rounded-xl"
+                onPress={() => setConfirmDeleteGroup(item)}
+                disabled={deletingGroupId === item.id}
+                style={{ opacity: deletingGroupId === item.id ? 0.5 : 0.9 }}
+              >
+                <Trash2 color="#ef4444" />
               </Pressable>
             </View>
 
@@ -396,9 +497,6 @@ export default function Groups() {
                 }}
               >
                 <UserPlus color="#7c3aed" size={18} />
-              </Pressable>
-              <Pressable className="p-2 rounded-xl opacity-40">
-                <Trash2 color="#cbd5e1" />
               </Pressable>
             </View>
           </Pressable>
@@ -467,7 +565,9 @@ export default function Groups() {
               </View>
             ) : pendingInvites.length === 0 ? (
               <View className="py-6 items-center">
-                <Text className="text-slate-500">대기 중인 초대가 없습니다.</Text>
+                <Text className="text-slate-500">
+                  대기 중인 초대가 없습니다.
+                </Text>
               </View>
             ) : (
               pendingInvites.map((inv) => (
@@ -513,6 +613,45 @@ export default function Groups() {
                 </View>
               ))
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Group Confirmation */}
+      <Modal visible={!!confirmDeleteGroup} transparent animationType="fade">
+        <View className="flex-1 bg-black/40 justify-center items-center px-6">
+          <View className="w-full max-w-md bg-white rounded-2xl p-4 gap-3">
+            <Text className="text-lg font-semibold text-slate-900">
+              그룹 삭제
+            </Text>
+            <Text className="text-slate-600">
+              "{confirmDeleteGroup?.name}" 그룹을 삭제할까요?
+            </Text>
+            <View className="flex-row justify-end gap-2">
+              <Pressable
+                className="px-4 py-2 rounded-xl bg-slate-100"
+                onPress={() => setConfirmDeleteGroup(null)}
+                disabled={deletingGroupId !== null}
+                style={{ opacity: deletingGroupId ? 0.6 : 1 }}
+              >
+                <Text className="text-slate-700">취소</Text>
+              </Pressable>
+              <Pressable
+                className="px-4 py-2 rounded-xl bg-rose-600"
+                onPress={() => {
+                  if (confirmDeleteGroup) handleDeleteGroup(confirmDeleteGroup.id);
+                  setConfirmDeleteGroup(null);
+                }}
+                disabled={deletingGroupId !== null}
+                style={{ opacity: deletingGroupId ? 0.7 : 1 }}
+              >
+                {deletingGroupId ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text className="text-white font-semibold">삭제</Text>
+                )}
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>

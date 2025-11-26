@@ -1,10 +1,4 @@
-import {
-  HelpCircle,
-  LogOut,
-  Menu,
-  Settings,
-  User,
-} from "lucide-react-native";
+import { HelpCircle, LogOut, Menu, Settings, User } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import SideSheet from "./SideSheet";
@@ -57,7 +51,7 @@ export default function HeaderWithMenu({
           </View>
 
           {/* Right Slot */}
-          <View className="flex-row items-center gap-2 py-1.5 px-2.5 rounded-full bg-indigo-50">
+          <View className="flex-row items-center gap-2 py-1.5 px-2.5 rounded-full bg-white">
             {rightSlot}
           </View>
         </View>

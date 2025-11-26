@@ -7,11 +7,17 @@ import ReceiptUpload from "./ReceiptUpload";
 
 export default function AddExpenseModal({
   members,
+  groupId,
+  authToken,
+  currentUserId,
   currentUserName,
   onClose,
   onAddExpense,
 }: {
   members: string[];
+  groupId: string;
+  authToken?: string | null;
+  currentUserId: string;
   currentUserName: string;
   onClose: () => void;
   onAddExpense: (e: Expense) => void;
@@ -55,8 +61,11 @@ export default function AddExpenseModal({
 
       {tab === "ocr" ? (
         <ReceiptUpload
+          groupId={groupId}
           groupMembers={members}
-          currentUser={currentUserName}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          authToken={authToken}
           onAddExpense={onAddExpense}
         />
       ) : (
